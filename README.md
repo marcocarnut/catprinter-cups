@@ -44,15 +44,27 @@ details, such as head width, RFCOMM channel or supported commands. See
 
 Needs CUPS and Python 3; there are no other dependencies.
 
+Switch the printer on (blue LED blinking), then:
+
     git clone https://github.com/marcocarnut/catprinter-cups
     cd catprinter-cups
+    sudo ./install.sh
+
+The script searches for a nearby `YHK-XXXX` printer, installs the filter,
+backend and PPD, and creates a queue called `CatPrinter`. No Bluetooth
+pairing is needed.
+
+To skip the search, or to choose between several printers, give the
+address and, optionally, a queue name:
+
     sudo ./install.sh 24:00:04:00:21:B8 CatPrinter
 
-This installs the filter, backend and PPD and creates a queue called
-`CatPrinter`. No Bluetooth pairing is needed. Just switch the printer on.
+Given an address, the script assumes RFCOMM channel 2. The search finds
+the channel itself.
 
-The script assumes RFCOMM channel 2. If `sdptool` reported a different
-channel, edit `CHANNEL=` in `install.sh` first.
+The printer also shows up in CUPS's own printer search (`lpinfo -v`, or
+"Add Printer" in the CUPS web interface at http://localhost:631) as
+"YHK Cat Printer".
 
 To remove everything: `sudo ./uninstall.sh CatPrinter`.
 
@@ -108,6 +120,12 @@ These findings come from probing the `YHK-21B8`. Other units may differ.
   - Wide solid areas come out patchy grey, likely because the head's current
     is limited.
   - A full battery (or USB power) and fresh paper help noticeably.
+- **It switches itself off after a few minutes idle.** Switch it on before
+  printing. If a job is sent while it is off, CUPS retries a few times; if
+  the printer stays off longer, the queue may stop. Switch the printer on
+  and run `cupsenable CatPrinter`.
+- **It can take a while to show up in a scan** (from about 3 s to over 10 s),
+  so the printer search is adaptive and waits up to 20 s.
 - **The tear bar is about 8 mm past the print head**, hence the 10 mm
   default `FeedAfter`.
 - The printer buffers incoming data and finishes printing even after the
@@ -122,8 +140,10 @@ These findings come from probing the `YHK-21B8`. Other units may differ.
 | `btspp` | `/usr/lib/cups/backend/` | Bluetooth SPP backend, URI `btspp://2400040021B8/2` (address without colons / RFCOMM channel) |
 | `yhk-catprinter.ppd` | `/usr/share/ppd/yhk/` | page sizes and options |
 
-`btspp` is generic. It sends a job to any Bluetooth serial printer, so it
-may be useful on its own.
+`btspp` sends jobs to any Bluetooth serial printer, so it may be useful on
+its own. Its printer search, which CUPS runs when it lists printers, looks
+only for `YHK-XXXX` devices. It uses `bluetoothctl` and `sdptool` (BlueZ),
+so it needs no root.
 
 ## Testing without installing
 
@@ -135,8 +155,12 @@ may be useful on its own.
 ## Troubleshooting
 
 - **Job stays in "connecting to device".** Check that the printer is on and
-  in range. It may also be connected to a phone: close the app, or turn off
-  the phone's Bluetooth.
+  in range. It switches itself off after a few minutes idle. It may also
+  be connected to a phone: close the app, or turn off the phone's
+  Bluetooth.
+- **`install.sh` finds no printer.** Switch the printer on and retry.
+  Test the search on its own with `./btspp`: it should print a
+  `direct btspp://…` line.
 - **Wrong RFCOMM channel.** Run `sdptool search --bdaddr <addr> SP` to find
   it, then `sudo lpadmin -p CatPrinter -v btspp://<ADDR-NO-COLONS>/<channel>`.
 - **"Printer drivers are deprecated"** from `lpadmin` is only a warning.

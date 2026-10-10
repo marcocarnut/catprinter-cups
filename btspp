@@ -8,12 +8,18 @@ The channel defaults to 1 when omitted.  No pairing is needed for the
 YHK / JieLi cat printers this was written for.
 
 Usage (as invoked by CUPS): btspp job user title copies options [file]
-Run without arguments to list the backend for device discovery.
+
+Run without arguments (as CUPS does when searching for printers) to scan
+for nearby printers named YHK-XXXX and list them with their RFCOMM
+channel.  Scanning uses bluetoothctl and sdptool, so no root is needed.
 """
 
 import os
+import pty
 import re
+import select
 import socket
+import subprocess
 import sys
 import time
 
@@ -23,6 +29,13 @@ CUPS_BACKEND_FAILED = 1
 CUPS_BACKEND_RETRY = 6
 
 CONNECT_ATTEMPTS = 5
+
+SCAN_MAX_SECONDS = 20   # give up when nothing shows up
+SCAN_SETTLE_SECONDS = 3  # stop this long after the last new printer
+DEFAULT_CHANNEL = 2
+PRINTER_NAME = re.compile(r"YHK-[0-9A-Fa-f]{4}")
+MAKE_MODEL = "YHK Cat Printer"
+DEVICE_ID = "MFG:YHK;MDL:Cat Printer;CMD:ESC/POS;"
 
 
 def log(level, msg):
@@ -45,6 +58,129 @@ def parse_uri(uri):
     return addr, int(m.group(2) or 1)
 
 
+def run(cmd, timeout):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def spp_channel(addr):
+    """RFCOMM channel of the printer's serial port service, or None if it
+    does not answer (e.g. a remembered device that is not around)."""
+    out = run(["sdptool", "search", "--bdaddr", addr, "SP"], 15)
+    if not out and not os.path.exists("/usr/bin/sdptool"):
+        return DEFAULT_CHANNEL
+    m = re.search(r"Channel:\s*(\d+)", out)
+    return int(m.group(1)) if m else None
+
+
+DEVICE_LINE = re.compile(r"(NEW|CHG)\] Device ((?:[0-9A-F]{2}:){5}[0-9A-F]{2})"
+                         r"(?: (.*))?")
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def known_printers():
+    """YHK devices BlueZ already knows about.  They show up as CHG rather
+    than NEW lines when seen again during a scan."""
+    found = {}
+    for line in run(["bluetoothctl", "devices"], 10).splitlines():
+        parts = line.strip().split(" ", 2)
+        if (len(parts) == 3 and parts[0] == "Device"
+                and PRINTER_NAME.fullmatch(parts[2])):
+            found[parts[1]] = parts[2]
+    return found
+
+
+def report(addr, name):
+    # SDP is tried twice; a printer that was just seen in the scan but does
+    # not answer is listed on the usual channel rather than dropped.
+    channel = spp_channel(addr) or spp_channel(addr)
+    if channel is None:
+        log("DEBUG", f"{name} ({addr}) did not answer SDP, "
+                     f"assuming channel {DEFAULT_CHANNEL}")
+        channel = DEFAULT_CHANNEL
+    uri = f"btspp://{addr.replace(':', '')}/{channel}"
+    print(f'direct {uri} "{MAKE_MODEL}" "{name} (Bluetooth)" '
+          f'"{DEVICE_ID}" ""')
+    sys.stdout.flush()
+
+
+def discover():
+    """Print a CUPS device line for each YHK printer in range.
+
+    The printer sometimes takes over 10 s to show up in a scan, so rather
+    than scanning for a fixed time, watch bluetoothctl's output and stop
+    shortly after the last new printer turns up."""
+    known = known_printers()
+    # Without --timeout, "bluetoothctl scan on" exits before discovery
+    # starts; with it, it occasionally fails to exit, so we stop it
+    # ourselves.  It only flushes its output line by line on a terminal,
+    # hence the pty.
+    master, slave = pty.openpty()
+    try:
+        scan = subprocess.Popen(["bluetoothctl", "--timeout",
+                                 str(SCAN_MAX_SECONDS + 5), "scan", "on"],
+                                stdin=subprocess.DEVNULL,
+                                stdout=slave, stderr=slave)
+    except OSError:
+        os.close(master)
+        return
+    finally:
+        os.close(slave)
+    start = last_new = time.monotonic()
+    found = {}
+    pending = b""
+    try:
+        while True:
+            now = time.monotonic()
+            if now - start > SCAN_MAX_SECONDS:
+                break
+            if found and now - last_new > SCAN_SETTLE_SECONDS:
+                break
+            ready, _, _ = select.select([master], [], [], 0.5)
+            if not ready:
+                continue
+            try:
+                chunk = os.read(master, 4096)
+            except OSError:  # EIO: bluetoothctl closed the terminal
+                break
+            if not chunk:
+                break
+            pending += chunk
+            *lines, pending = pending.replace(b"\r", b"").split(b"\n")
+            for raw in lines:
+                line = ANSI.sub("", raw.decode(errors="replace")).strip()
+                sys.stderr.write(f"DEBUG: bluetoothctl: {line}\n")
+                m = DEVICE_LINE.search(line)
+                if not m:
+                    continue
+                kind, addr, rest = m.groups()
+                if addr in found:
+                    continue
+                if kind == "NEW" and rest and PRINTER_NAME.fullmatch(rest):
+                    name = rest
+                elif kind == "CHG" and addr in known:
+                    name = known[addr]
+                else:
+                    continue
+                found[addr] = name
+                last_new = time.monotonic()
+    finally:
+        scan.terminate()
+        try:
+            scan.wait(5)
+        except subprocess.TimeoutExpired:
+            scan.kill()
+            scan.wait()
+        os.close(master)
+    # SDP only after the scan has stopped: paging a device while an
+    # inquiry is running is slow and often times out.
+    for addr, name in found.items():
+        report(addr, name)
+
+
 def connect(addr, channel):
     for attempt in range(1, CONNECT_ATTEMPTS + 1):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM,
@@ -64,7 +200,7 @@ def connect(addr, channel):
 
 def main():
     if len(sys.argv) == 1:
-        print('direct btspp "Unknown" "Bluetooth serial (SPP) printer"')
+        discover()
         return CUPS_BACKEND_OK
     if len(sys.argv) not in (6, 7):
         sys.stderr.write("Usage: btspp job user title copies options "

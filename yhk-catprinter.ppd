@@ -11,6 +11,7 @@
 *Manufacturer: "YHK"
 *Product: "(YHK Cat Printer)"
 *ModelName: "YHK Cat Printer"
+*1284DeviceID: "MFG:YHK;MDL:Cat Printer;CMD:ESC/POS;"
 *ShortNickName: "YHK Cat Printer 54mm"
 *NickName: "YHK Cat Printer 54mm (ESC/POS raster)"
 *PSVersion: "(3010.000) 0"
