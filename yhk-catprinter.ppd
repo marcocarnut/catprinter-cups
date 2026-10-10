@@ -1,0 +1,132 @@
+*PPD-Adobe: "4.3"
+*% SPDX-License-Identifier: GPL-3.0-or-later
+*% PPD for YHK / JieLi "cat" Bluetooth thermal printers (54 mm roll,
+*% 48 mm / 384-dot printable width, 203 dpi, ESC/POS raster).
+*% Page sizes are the printable area: what you design is what prints.
+*FormatVersion: "4.3"
+*FileVersion: "1.0"
+*LanguageVersion: English
+*LanguageEncoding: ISOLatin1
+*PCFileName: "YHKCAT.PPD"
+*Manufacturer: "YHK"
+*Product: "(YHK Cat Printer)"
+*ModelName: "YHK Cat Printer"
+*ShortNickName: "YHK Cat Printer 54mm"
+*NickName: "YHK Cat Printer 54mm (ESC/POS raster)"
+*PSVersion: "(3010.000) 0"
+*LanguageLevel: "3"
+*ColorDevice: False
+*DefaultColorSpace: Gray
+*FileSystem: False
+*Throughput: "1"
+*LandscapeOrientation: Plus90
+*TTRasterizer: Type42
+*cupsVersion: 2.4
+*cupsModelNumber: 0
+*cupsManualCopies: True
+*cupsFilter: "application/vnd.cups-raster 0 rastertoyhk"
+
+*OpenUI *PageSize/Label Size: PickOne
+*OrderDependency: 10 AnySetup *PageSize
+*DefaultPageSize: Label48x48mm
+*PageSize Label48x20mm/48 x 20 mm: "<</PageSize[136.06 56.69]/ImagingBBox null>>setpagedevice"
+*PageSize Label48x30mm/48 x 30 mm: "<</PageSize[136.06 85.04]/ImagingBBox null>>setpagedevice"
+*PageSize Label48x40mm/48 x 40 mm: "<</PageSize[136.06 113.39]/ImagingBBox null>>setpagedevice"
+*PageSize Label48x48mm/48 x 48 mm (square): "<</PageSize[136.06 136.06]/ImagingBBox null>>setpagedevice"
+*PageSize Label48x50mm/48 x 50 mm: "<</PageSize[136.06 141.73]/ImagingBBox null>>setpagedevice"
+*PageSize Label48x60mm/48 x 60 mm: "<</PageSize[136.06 170.08]/ImagingBBox null>>setpagedevice"
+*PageSize Label48x80mm/48 x 80 mm: "<</PageSize[136.06 226.77]/ImagingBBox null>>setpagedevice"
+*PageSize Label48x100mm/48 x 100 mm: "<</PageSize[136.06 283.46]/ImagingBBox null>>setpagedevice"
+*CloseUI: *PageSize
+
+*OpenUI *PageRegion: PickOne
+*OrderDependency: 10 AnySetup *PageRegion
+*DefaultPageRegion: Label48x48mm
+*PageRegion Label48x20mm/48 x 20 mm: "<</PageSize[136.06 56.69]/ImagingBBox null>>setpagedevice"
+*PageRegion Label48x30mm/48 x 30 mm: "<</PageSize[136.06 85.04]/ImagingBBox null>>setpagedevice"
+*PageRegion Label48x40mm/48 x 40 mm: "<</PageSize[136.06 113.39]/ImagingBBox null>>setpagedevice"
+*PageRegion Label48x48mm/48 x 48 mm (square): "<</PageSize[136.06 136.06]/ImagingBBox null>>setpagedevice"
+*PageRegion Label48x50mm/48 x 50 mm: "<</PageSize[136.06 141.73]/ImagingBBox null>>setpagedevice"
+*PageRegion Label48x60mm/48 x 60 mm: "<</PageSize[136.06 170.08]/ImagingBBox null>>setpagedevice"
+*PageRegion Label48x80mm/48 x 80 mm: "<</PageSize[136.06 226.77]/ImagingBBox null>>setpagedevice"
+*PageRegion Label48x100mm/48 x 100 mm: "<</PageSize[136.06 283.46]/ImagingBBox null>>setpagedevice"
+*CloseUI: *PageRegion
+
+*DefaultImageableArea: Label48x48mm
+*ImageableArea Label48x20mm: "0 0 136.06 56.69"
+*ImageableArea Label48x30mm: "0 0 136.06 85.04"
+*ImageableArea Label48x40mm: "0 0 136.06 113.39"
+*ImageableArea Label48x48mm: "0 0 136.06 136.06"
+*ImageableArea Label48x50mm: "0 0 136.06 141.73"
+*ImageableArea Label48x60mm: "0 0 136.06 170.08"
+*ImageableArea Label48x80mm: "0 0 136.06 226.77"
+*ImageableArea Label48x100mm: "0 0 136.06 283.46"
+
+*DefaultPaperDimension: Label48x48mm
+*PaperDimension Label48x20mm: "136.06 56.69"
+*PaperDimension Label48x30mm: "136.06 85.04"
+*PaperDimension Label48x40mm: "136.06 113.39"
+*PaperDimension Label48x48mm: "136.06 136.06"
+*PaperDimension Label48x50mm: "136.06 141.73"
+*PaperDimension Label48x60mm: "136.06 170.08"
+*PaperDimension Label48x80mm: "136.06 226.77"
+*PaperDimension Label48x100mm: "136.06 283.46"
+
+*% Custom sizes, e.g. lp -o media=Custom.48x70mm
+*VariablePaperSize: True
+*MaxMediaWidth: "136.06"
+*MaxMediaHeight: "8503.94"
+*HWMargins: 0 0 0 0
+*CustomPageSize True: "pop pop pop <</PageSize[5 -2 roll]/ImagingBBox null>>setpagedevice"
+*ParamCustomPageSize Width: 1 points 28.35 136.06
+*ParamCustomPageSize Height: 2 points 28.35 8503.94
+*ParamCustomPageSize WidthOffset: 3 points 0 0
+*ParamCustomPageSize HeightOffset: 4 points 0 0
+*ParamCustomPageSize Orientation: 5 int 0 0
+
+*OpenUI *Resolution/Resolution: PickOne
+*OrderDependency: 20 AnySetup *Resolution
+*DefaultResolution: 203dpi
+*Resolution 203dpi/203 dpi: "<</HWResolution[203 203]>>setpagedevice"
+*CloseUI: *Resolution
+
+*OpenUI *ColorModel/Color Mode: PickOne
+*OrderDependency: 20 AnySetup *ColorModel
+*DefaultColorModel: Gray
+*ColorModel Gray/Grayscale: "<</cupsColorSpace 0/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*CloseUI: *ColorModel
+
+*% The options below are read by rastertoyhk itself.
+*OpenUI *Dither/Halftoning: PickOne
+*OrderDependency: 30 AnySetup *Dither
+*DefaultDither: FloydSteinberg
+*Dither FloydSteinberg/Floyd-Steinberg (photos): ""
+*Dither Threshold/Threshold (text, QR codes): ""
+*CloseUI: *Dither
+
+*OpenUI *FeedAfter/Paper Feed After Job: PickOne
+*OrderDependency: 30 AnySetup *FeedAfter
+*DefaultFeedAfter: 10mm
+*FeedAfter 0mm/None: ""
+*FeedAfter 5mm/5 mm: ""
+*FeedAfter 8mm/8 mm: ""
+*FeedAfter 10mm/10 mm: ""
+*FeedAfter 12mm/12 mm: ""
+*FeedAfter 15mm/15 mm: ""
+*FeedAfter 20mm/20 mm: ""
+*FeedAfter 30mm/30 mm: ""
+*FeedAfter 40mm/40 mm: ""
+*CloseUI: *FeedAfter
+
+*OpenUI *PageGap/Gap Between Labels: PickOne
+*OrderDependency: 30 AnySetup *PageGap
+*DefaultPageGap: 4mm
+*PageGap 0mm/None: ""
+*PageGap 2mm/2 mm: ""
+*PageGap 4mm/4 mm: ""
+*PageGap 8mm/8 mm: ""
+*PageGap 16mm/16 mm: ""
+*CloseUI: *PageGap
+
+*DefaultFont: Courier
+*Font Courier: Standard "(002.004S)" Standard ROM

@@ -1,0 +1,127 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marco Carnut
+"""CUPS backend for printers reachable over a Bluetooth SPP (RFCOMM) link.
+
+Device URI:  btspp://2400040021B8/2     (address without colons / RFCOMM channel)
+The channel defaults to 1 when omitted.  No pairing is needed for the
+YHK / JieLi cat printers this was written for.
+
+Usage (as invoked by CUPS): btspp job user title copies options [file]
+Run without arguments to list the backend for device discovery.
+"""
+
+import os
+import re
+import socket
+import sys
+import time
+
+# cups/backend.h exit codes
+CUPS_BACKEND_OK = 0
+CUPS_BACKEND_FAILED = 1
+CUPS_BACKEND_RETRY = 6
+
+CONNECT_ATTEMPTS = 5
+
+
+def log(level, msg):
+    sys.stderr.write(f"{level}: btspp: {msg}\n")
+    sys.stderr.flush()
+
+
+def parse_uri(uri):
+    """btspp://2400040021B8/2 -> ("24:00:04:00:21:B8", 2).
+
+    CUPS rejects colons in the host part of a device URI, so the address
+    is normally written as 12 hex digits; colon form is accepted too."""
+    m = re.fullmatch(r"btspp://([0-9A-Fa-f:]+)(?:/(\d+))?/?", uri)
+    if not m:
+        return None
+    hexaddr = m.group(1).replace(":", "").upper()
+    if len(hexaddr) != 12:
+        return None
+    addr = ":".join(hexaddr[i:i + 2] for i in range(0, 12, 2))
+    return addr, int(m.group(2) or 1)
+
+
+def connect(addr, channel):
+    for attempt in range(1, CONNECT_ATTEMPTS + 1):
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM,
+                          socket.BTPROTO_RFCOMM)
+        s.settimeout(15)
+        try:
+            s.connect((addr, channel))
+            return s
+        except OSError as e:
+            s.close()
+            log("INFO", f"connect attempt {attempt} to {addr} channel "
+                        f"{channel} failed: {e}")
+            sys.stderr.write("STATE: +connecting-to-device\n")
+            time.sleep(1)
+    return None
+
+
+def main():
+    if len(sys.argv) == 1:
+        print('direct btspp "Unknown" "Bluetooth serial (SPP) printer"')
+        return CUPS_BACKEND_OK
+    if len(sys.argv) not in (6, 7):
+        sys.stderr.write("Usage: btspp job user title copies options "
+                         "[file]\n")
+        return CUPS_BACKEND_FAILED
+
+    uri = os.environ.get("DEVICE_URI", "")
+    target = parse_uri(uri)
+    if not target:
+        log("ERROR", f"bad device URI {uri!r}, expected "
+                     "btspp://XXXXXXXXXXXX/channel")
+        return CUPS_BACKEND_FAILED
+    addr, channel = target
+
+    data = (open(sys.argv[6], "rb") if len(sys.argv) == 7
+            else sys.stdin.buffer)
+    copies = int(sys.argv[4]) if len(sys.argv) == 7 else 1
+
+    log("INFO", f"Connecting to {addr} channel {channel}")
+    s = connect(addr, channel)
+    if s is None:
+        log("ERROR", f"printer {addr} not reachable; is it switched on?")
+        return CUPS_BACKEND_RETRY
+    sys.stderr.write("STATE: -connecting-to-device\n")
+
+    total = 0
+    try:
+        s.settimeout(60)
+        for _ in range(copies):
+            if len(sys.argv) == 7:
+                data.seek(0)
+            while True:
+                buf = data.read(4096)
+                if not buf:
+                    break
+                s.sendall(buf)
+                total += len(buf)
+        # A status query confirms the printer is still there and has
+        # received everything.  The reply comes back as soon as the data
+        # is buffered, not when printing ends; the printer finishes the
+        # job on its own after the link is dropped.
+        s.sendall(b"\x10\x04\x01")
+        s.settimeout(30)
+        try:
+            s.recv(16)
+        except socket.timeout:
+            log("WARNING", "no status reply from printer")
+        time.sleep(1)
+    except OSError as e:
+        log("ERROR", f"lost connection after {total} bytes: {e}")
+        return CUPS_BACKEND_RETRY
+    finally:
+        s.close()
+
+    log("INFO", f"Sent {total} bytes")
+    return CUPS_BACKEND_OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())
